@@ -16,7 +16,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
-Base.metadata.create_all(bind=engine)
+
+
+def init_db():
+    with Session() as db:
+        count = db.query(api.database_models.Product).count()
+        if count == 0:
+            for product in products:
+                db.add(api.database_models.Product(**product.model_dump()))
+            db.commit()
+
+
+try:
+    Base.metadata.create_all(bind=engine)
+    init_db()
+except Exception as e:
+    pass
 
 
 products = [Product(id=1, name="Laptop", description="Budget Laptop", price=80000.0, quantity=15),
@@ -30,18 +45,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-
-def init_db():
-    with Session() as db:
-        count = db.query(api.database_models.Product).count()
-        if count == 0:
-            for product in products:
-                db.add(api.database_models.Product(**product.model_dump()))
-            db.commit()
-
-
-init_db()
 
 
 @app.get("/products")
