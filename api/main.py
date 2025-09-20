@@ -11,7 +11,7 @@ origins_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
 origins = [o.strip() for o in origins_raw.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["https://fast-api-project-5nsk07u8j-sheldors-projects.vercel.app"],
     allow_methods=["*"],
     allow_headers=["*"]
 )
