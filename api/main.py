@@ -1,13 +1,21 @@
+import os
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from models import Product
+from api.models import Product
 from sqlalchemy.orm import Session
-from database import Session, engine
-from database_models import Base
-import database_models
+from api.database import Session, engine
+from api.database_models import Base
+import api.database_models
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["*"])
+origins_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+origins = [o.strip() for o in origins_raw.split(",") if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 Base.metadata.create_all(bind=engine)
 
 
@@ -26,10 +34,10 @@ def get_db():
 
 def init_db():
     with Session() as db:
-        count = db.query(database_models.Product).count()
+        count = db.query(api.database_models.Product).count()
         if count == 0:
             for product in products:
-                db.add(database_models.Product(**product.model_dump()))
+                db.add(api.database_models.Product(**product.model_dump()))
             db.commit()
 
 
@@ -38,13 +46,13 @@ init_db()
 
 @app.get("/products")
 async def get_products(db: Session = Depends(get_db)):
-    db_products = db.query(database_models.Product).all()
+    db_products = db.query(api.database_models.Product).all()
     return db_products
 
 
 @app.get("/products/{product_id}")
 async def get_product_by_id(product_id: int, db: Session = Depends(get_db)):
-    db_products = db.query(database_models.Product).filter(database_models.Product.id == product_id).first()
+    db_products = db.query(api.database_models.Product).filter(api.database_models.Product.id == product_id).first()
     if db_products is not None:
         return db_products
     return {"message": "Product Not Found"}
@@ -52,14 +60,14 @@ async def get_product_by_id(product_id: int, db: Session = Depends(get_db)):
 
 @app.post("/products")
 async def add_product(product: Product, db: Session = Depends(get_db)):
-    db.add(database_models.Product(**product.model_dump()))
+    db.add(api.database_models.Product(**product.model_dump()))
     db.commit()
     return product
 
 
 @app.put("/products/{product_id}")
 async def update_product(product_id: int, product: Product, db: Session = Depends(get_db)):
-    db_products = db.query(database_models.Product).filter(database_models.Product.id == product_id).first()
+    db_products = db.query(api.database_models.Product).filter(api.database_models.Product.id == product_id).first()
     if db_products:
         db_products.name = product.name
         db_products.price = product.price
@@ -72,7 +80,7 @@ async def update_product(product_id: int, product: Product, db: Session = Depend
 
 @app.delete("/products/{product_id}")
 async def delete_product(product_id: int, db: Session = Depends(get_db)):
-    db_products = db.query(database_models.Product).filter(database_models.Product.id == product_id).first()
+    db_products = db.query(api.database_models.Product).filter(api.database_models.Product.id == product_id).first()
     if db_products:
         db.delete(db_products)
         db.commit()
