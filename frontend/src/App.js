@@ -4,7 +4,7 @@ import "./App.css";
 import TaglineSection from "./TaglineSection";
 
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: "http://localhost:3000",
 });
 
 function App() {
@@ -44,33 +44,33 @@ function App() {
   }, [error]);
 
   // Fetch all products
-  const fetchProducts = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get("/products/");
-      setProducts(res.data);
-      setError("");
-    } catch (err) {
-      setError("Failed to fetch products");
-    }
-    setLoading(false);
-  };
+const fetchProducts = async () => {
+  setLoading(true);
+  try {
+    const res = await api.get("/products/");
+    console.log("GET /products response:", res.data); // debug - remove later
 
-  useEffect(() => {
-    // Inline initial fetch to avoid referencing external deps
-    const run = async () => {
-      setLoading(true);
-      try {
-        const res = await api.get("/products/");
-        setProducts(res.data);
-        setError("");
-      } catch (err) {
-        setError("Failed to fetch products");
-      }
-      setLoading(false);
-    };
-    run();
-  }, []);
+    // Normalize response into an array
+    let data = res.data;
+    let arr =
+      Array.isArray(data) ? data :
+      Array.isArray(data?.products) ? data.products :
+      Array.isArray(data?.data) ? data.data :
+      [];
+
+    setProducts(arr);
+    setError("");
+  } catch (err) {
+    console.error("fetchProducts error", err, err?.response?.data);
+    setError("Failed to fetch products");
+    setProducts([]);
+  }
+  setLoading(false);
+};
+
+useEffect(() => {
+  fetchProducts();
+}, []);
 
   // Handle sorting
   const handleSort = (field) => {
@@ -83,39 +83,42 @@ function App() {
   };
 
   // Derived list with filter and sorting
-  const filteredProducts = useMemo(() => {
-    let filtered = products;
-    
-    // Apply filter
-    const q = filter.trim().toLowerCase();
-    if (q) {
-      filtered = products.filter((p) =>
+const filteredProducts = useMemo(() => {
+  // ensure products is an array
+  const src = Array.isArray(products) ? products : [];
+
+  // Apply filter
+  const q = filter.trim().toLowerCase();
+  let filtered = q
+    ? src.filter((p) =>
         String(p.id).includes(q) ||
-        p.name?.toLowerCase().includes(q) ||
-        p.description?.toLowerCase().includes(q)
-      );
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.description && p.description.toLowerCase().includes(q))
+      )
+    : src.slice(); // copy
+
+  // Make a shallow copy before sorting (do not mutate state)
+  const items = filtered.slice();
+
+  // Defensive sort comparator
+  items.sort((a, b) => {
+    let aVal = a?.[sortField];
+    let bVal = b?.[sortField];
+
+    if (sortField === "id" || sortField === "price" || sortField === "quantity") {
+      aVal = Number(aVal || 0);
+      bVal = Number(bVal || 0);
+    } else {
+      aVal = String(aVal ?? "").toLowerCase();
+      bVal = String(bVal ?? "").toLowerCase();
     }
-    
-    // Apply sorting
-    return filtered.sort((a, b) => {
-      let aVal = a[sortField];
-      let bVal = b[sortField];
-      
-      // Handle numeric fields
-      if (sortField === "id" || sortField === "price" || sortField === "quantity") {
-        aVal = Number(aVal);
-        bVal = Number(bVal);
-      } else {
-        // Handle string fields
-        aVal = String(aVal).toLowerCase();
-        bVal = String(bVal).toLowerCase();
-      }
-      
-      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
-      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
-      return 0;
-    });
-  }, [products, filter, sortField, sortDirection]);
+
+    if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+    if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+    return 0;
+  });
+  return items;
+}, [products, filter, sortField, sortDirection]);
 
   // Handle form input
   const handleChange = (e) => {
@@ -199,7 +202,7 @@ function App() {
       <header className="topbar">
         <div className="brand">
           <span className="brand-badge">📦</span>
-          <h1>Telusko Trac</h1>
+          <h1>ShelMart</h1>
         </div>
         <div className="top-actions">
           <button className="btn btn-light" onClick={fetchProducts} disabled={loading}>
