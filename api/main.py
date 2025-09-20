@@ -65,7 +65,7 @@ def get_db():
         db.close()
 
 
-@app.get("/products")
+@app.get("/api/products")
 async def get_products(db: Session = Depends(get_db)):
     db_products = db.query(database_models.Product).all()
     return db_products
