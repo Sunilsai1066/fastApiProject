@@ -1,10 +1,10 @@
 import os
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from api.models import Product
+from models import Product
 from sqlalchemy.orm import Session
-from api.database import Session, engine
-import api.database_models
+from database import Session, engine
+import database_models
 
 app = FastAPI()
 origins_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
@@ -19,7 +19,7 @@ app.add_middleware(
 
 db_module = None
 try:
-    import api.database as db_module  # contains Session, engine
+    import database as db_module  # contains Session, engine
 except Exception as e:
     # log to stdout so Vercel shows something in function logs
     print("Warning: failed to import api.database at module import:", e)
@@ -31,14 +31,14 @@ def try_init_db():
     if db_module is None:
         return
     try:
-        Base = api.database_models.Base
+        Base = database_models.Base
         Base.metadata.create_all(bind=db_module.engine)
         # seed only if empty
         with db_module.Session() as db:
-            count = db.query(api.database_models.Product).count()
+            count = db.query(database_models.Product).count()
             if count == 0:
                 for product in products:
-                    db.add(api.database_models.Product(**product.model_dump()))
+                    db.add(database_models.Product(**product.model_dump()))
                 db.commit()
     except Exception as e:
         # print so Vercel function logs show it
@@ -67,13 +67,13 @@ def get_db():
 
 @app.get("/products")
 async def get_products(db: Session = Depends(get_db)):
-    db_products = db.query(api.database_models.Product).all()
+    db_products = db.query(database_models.Product).all()
     return db_products
 
 
 @app.get("/products/{product_id}")
 async def get_product_by_id(product_id: int, db: Session = Depends(get_db)):
-    db_products = db.query(api.database_models.Product).filter(api.database_models.Product.id == product_id).first()
+    db_products = db.query(database_models.Product).filter(database_models.Product.id == product_id).first()
     if db_products is not None:
         return db_products
     return {"message": "Product Not Found"}
@@ -81,14 +81,14 @@ async def get_product_by_id(product_id: int, db: Session = Depends(get_db)):
 
 @app.post("/products")
 async def add_product(product: Product, db: Session = Depends(get_db)):
-    db.add(api.database_models.Product(**product.model_dump()))
+    db.add(database_models.Product(**product.model_dump()))
     db.commit()
     return product
 
 
 @app.put("/products/{product_id}")
 async def update_product(product_id: int, product: Product, db: Session = Depends(get_db)):
-    db_products = db.query(api.database_models.Product).filter(api.database_models.Product.id == product_id).first()
+    db_products = db.query(database_models.Product).filter(database_models.Product.id == product_id).first()
     if db_products:
         db_products.name = product.name
         db_products.price = product.price
@@ -101,7 +101,7 @@ async def update_product(product_id: int, product: Product, db: Session = Depend
 
 @app.delete("/products/{product_id}")
 async def delete_product(product_id: int, db: Session = Depends(get_db)):
-    db_products = db.query(api.database_models.Product).filter(api.database_models.Product.id == product_id).first()
+    db_products = db.query(database_models.Product).filter(database_models.Product.id == product_id).first()
     if db_products:
         db.delete(db_products)
         db.commit()
