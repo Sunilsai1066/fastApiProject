@@ -4,7 +4,7 @@ import "./App.css";
 import TaglineSection from "./TaglineSection";
 
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: "https://fast-api-project-5nsk07u8j-sheldors-projects.vercel.app/",
 });
 
 function App() {

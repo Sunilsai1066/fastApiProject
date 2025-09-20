@@ -26,5 +26,5 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:8000"
+  "proxy": "https://fast-api-project-5nsk07u8j-sheldors-projects.vercel.app/"
 }
