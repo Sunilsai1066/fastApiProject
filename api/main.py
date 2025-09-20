@@ -4,7 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.models import Product
 from sqlalchemy.orm import Session
 from api.database import Session, engine
-from api.database_models import Base
 import api.database_models
 
 app = FastAPI()
@@ -18,19 +17,38 @@ app.add_middleware(
 )
 
 
-def init_db():
-    with Session() as db:
-        count = db.query(api.database_models.Product).count()
-        if count == 0:
-            for product in products:
-                db.add(api.database_models.Product(**product.model_dump()))
-            db.commit()
-
-
+db_module = None
 try:
-    Base.metadata.create_all(bind=engine)
-    init_db()
+    import api.database as db_module  # contains Session, engine
 except Exception as e:
+    # log to stdout so Vercel shows something in function logs
+    print("Warning: failed to import api.database at module import:", e)
+    db_module = None
+
+
+# Helper: try to run create_all + init safe (guarded)
+def try_init_db():
+    if db_module is None:
+        return
+    try:
+        Base = api.database_models.Base
+        Base.metadata.create_all(bind=db_module.engine)
+        # seed only if empty
+        with db_module.Session() as db:
+            count = db.query(api.database_models.Product).count()
+            if count == 0:
+                for product in products:
+                    db.add(api.database_models.Product(**product.model_dump()))
+                db.commit()
+    except Exception as e:
+        # print so Vercel function logs show it
+        print("Info: DB create/seed skipped or failed during startup:", e)
+
+
+# Run the minimal init attempt, but don't let it crash imports
+try:
+    try_init_db()
+except Exception as _:
     pass
 
 
