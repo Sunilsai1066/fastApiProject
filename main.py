@@ -3,69 +3,51 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from models import Product
 from sqlalchemy.orm import Session
-from database import Session, engine
+from database import SessionLocal, engine
 import database_models
 
+
 app = FastAPI()
-origins_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
-origins = [o.strip() for o in origins_raw.split(",") if o.strip()]
+database_models.Base.metadata.create_all(bind=engine)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://fast-api-project-5nsk07u8j-sheldors-projects.vercel.app"],
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
-
-
-db_module = None
-try:
-    import database as db_module  # contains Session, engine
-except Exception as e:
-    # log to stdout so Vercel shows something in function logs
-    print("Warning: failed to import api.database at module import:", e)
-    db_module = None
-
-
-# Helper: try to run create_all + init safe (guarded)
-def try_init_db():
-    if db_module is None:
-        return
-    try:
-        Base = database_models.Base
-        Base.metadata.create_all(bind=db_module.engine)
-        # seed only if empty
-        with db_module.Session() as db:
-            count = db.query(database_models.Product).count()
-            if count == 0:
-                for product in products:
-                    db.add(database_models.Product(**product.model_dump()))
-                db.commit()
-    except Exception as e:
-        # print so Vercel function logs show it
-        print("Info: DB create/seed skipped or failed during startup:", e)
-
-
-# Run the minimal init attempt, but don't let it crash imports
-try:
-    try_init_db()
-except Exception as _:
-    pass
-
 
 products = [Product(id=1, name="Laptop", description="Budget Laptop", price=80000.0, quantity=15),
             Product(id=2, name="Realme GT 6T", description="Realme GT Mobile", price=45000.0, quantity=30),
             Product(id=3, name="OnePlus X", price=80000.0, quantity=15),]
 
 
+def init_db():
+    db = SessionLocal()
+
+    existing_count = db.query(database_models.Product).count()
+
+    if existing_count == 0:
+        for product in products:
+            db.add(database_models.Product(**product.model_dump()))
+        db.commit()
+        print("Database initialized with sample products.")
+
+    db.close()
+
+
+init_db()
+
+
 def get_db():
-    db = Session()
+    db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
 
-@app.get("/api/products")
+@app.get("/products")
 async def get_products(db: Session = Depends(get_db)):
     db_products = db.query(database_models.Product).all()
     return db_products
