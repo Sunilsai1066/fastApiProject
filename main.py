@@ -47,6 +47,11 @@ def get_db():
         db.close()
 
 
+@app.get("/")
+async def greet():
+    return {"message": "Welcome !!"}
+
+
 @app.get("/products")
 async def get_products(db: Session = Depends(get_db)):
     db_products = db.query(database_models.Product).all()
